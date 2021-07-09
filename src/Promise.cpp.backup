@@ -1,0 +1,45 @@
+template <typename T>
+void promiseResolver(void *pvParameters) {
+    Promise<T>* promise = static_cast<Promise<T>*>(pvParameters);
+    promise->resolvePromise(promise->asyncFunc());
+    vTaskDelete(NULL);
+}
+
+template <typename T>
+Promise<T>::Promise(){
+    promiseSemaphore = xSemaphoreCreateBinary();
+};
+
+template <typename T>
+Promise<T>::Promise(std::function<T()> asyncFunc, String taskName)
+    :asyncFunc(asyncFunc) {
+    Promise();
+    xTaskCreate(promiseResolver<T>,
+    taskName.c_str(),
+    3000,
+    this,
+    1, 
+    NULL);
+};
+
+template <typename T>
+void Promise<T>::resolvePromise(T result){
+    this->result = result;
+    unlockLock();
+};
+
+template <typename T>
+T Promise<T>::await(){
+    waitForLock();
+    return result;
+};
+
+template <typename T>
+void Promise<T>::waitForLock(){
+    xSemaphoreTake(promiseSemaphore, portMAX_DELAY);
+};
+
+template <typename T>
+void Promise<T>::unlockLock(){
+    xSemaphoreGive(promiseSemaphore);
+};
